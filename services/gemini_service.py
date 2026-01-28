@@ -1,9 +1,17 @@
-import google.generativeai as genai
+from google import genai
 import streamlit as st
 
-genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-model = genai.GenerativeModel("gemini-pro")
+# Initialize client
+client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
 def generate_reply(prompt: str) -> str:
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    try:
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=prompt
+        )
+
+        return response.text if response.text else "No response generated."
+
+    except Exception as e:
+        return f"Error generating response: {e}"

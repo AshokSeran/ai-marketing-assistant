@@ -1,32 +1,77 @@
-import json
 import streamlit as st
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 from datetime import datetime
 
-scope = [
-    "https://spreadsheets.google.com/feeds",
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
 ]
 
-creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-
+# Load credentials
+creds_dict = dict(st.secrets["GOOGLE_CREDENTIALS"])
+creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
 client = gspread.authorize(creds)
-sheet = client.open("AI_Marketing_Chat").sheet1
+
+# Open sheet safely
+try:
+    sheet = client.open("AI_Marketing_Chat").sheet1
+except Exception as e:
+    st.error(f"Google Sheet connection failed: {e}")
+    sheet = None
+
 
 def save_message(user_id, owner, company, details, role, message):
-    sheet.append_row([
-        user_id,
-        owner,
-        company,
-        details,
-        role,
-        message,
-        str(datetime.now())
-    ])
+    """Append a chat message row to Google Sheets"""
+    if not sheet:
+        return
+
+    try:
+        sheet.append_row([
+            str(user_id),
+            owner,
+            company,
+            details,
+            role,
+            message,
+            datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        ])
+    except Exception as e:
+        st.warning(f"Failed to save chat message: {e}")
+
 
 def get_last_messages(user_id, limit=6):
-    rows = sheet.get_all_records()
-    user_msgs = [r for r in rows if r["user_id"] == user_id]
-    return user_msgs[-limit:]
+    """Fetch last N messages for a specific user efficiently"""
+    if not sheet:
+        return []
+
+    try:
+        # Get all values (faster than get_all_records for big sheets)
+        rows = sheet.get_all_values()
+
+        if len(rows) < 2:
+            return []
+
+        headers = rows[0]
+        data_rows = rows[1:]
+
+        # Map column index safely
+        header_map = {h: i for i, h in enumerate(headers)}
+
+        if "user_id" not in header_map:
+            st.error("Column 'user_id' not found in sheet")
+            return []
+
+        uid_index = header_map["user_id"]
+
+        user_msgs = [
+            dict(zip(headers, row))
+            for row in data_rows
+            if len(row) > uid_index and row[uid_index] == str(user_id)
+        ]
+
+        return user_msgs[-limit:]
+
+    except Exception as e:
+        st.warning(f"Failed to fetch messages: {e}")
+        return []
