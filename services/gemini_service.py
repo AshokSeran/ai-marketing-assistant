@@ -1,21 +1,28 @@
-from google import genai
 import streamlit as st
+from google import genai
+from google.genai import errors
 
+# Initialize the new SDK Client
 client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
 def generate_reply(prompt: str) -> str:
     try:
-        # Try 'gemini-2.0-flash' first. 
-        # If that fails, run the list_models script above to find your exact model name.
+        # Use the specific Flash-Lite model for maximum free-tier limits
         response = client.models.generate_content(
-    model="gemini-2.5-flash", # Try 'gemini-1.5-flash-001' if this fails
-    contents=prompt
-)
+            model="gemini-2.5-flash-lite", 
+            contents=prompt
+        )
+        return response.text
 
-        if response.text:
-            return response.text.strip()
-        return "No response generated."
+    except errors.ClientError as e:
+        # Check for the specific 'Limit: 0' or 'Quota' error
+        if "quota" in str(e).lower():
+            return (
+                "⚠️ Free Tier Quota Reached or Project not activated. "
+                "Go to [Google AI Studio](https://aistudio.google.com) "
+                "to check your API key status."
+            )
+        return f"❌ API Error: {e.message}"
 
     except Exception as e:
-        # This will print the full error to your Streamlit app to help debug
-        return f"Error: {str(e)}"
+        return f"❌ System Error: {str(e)}"

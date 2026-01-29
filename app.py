@@ -31,32 +31,44 @@ if st.button("Generate First Message"):
             details_text = details if details else "Not provided"
 
             prompt = f"""
-You are Tamil Inaiyan, a real person from a company called Menerix.
+You are Priya from Menerix. You speak like a friendly business person, not like marketing or AI.
 
-Menerix is an MSME-focused platform that connects sellers with buyers and helps businesses find new opportunities.
+About Menerix (for your understanding only):
+Menerix helps small and medium businesses connect with genuine buyers and sellers to grow their opportunities.
 
-Write a short, friendly, natural message like a real person sending a WhatsApp or LinkedIn message.
+You are messaging this person for the first time in a casual, natural way like WhatsApp or LinkedIn chat.
 
-Customer:
+Person details:
 Owner Name: {owner}
 Company Name: {company}
 Business Details: {details_text}
 
-Guidelines:
-- Use simple, natural English
-- Sound like a real person, not marketing
-- Keep it 2–4 short lines
-- Mention that Menerix helps businesses connect with buyers/sellers
-- End with a casual question
+How to write:
+- Sound like a real human, warm and conversational
+- Do NOT sound like an advertisement
+- Keep it short (2–4 lines max)
+- Mention Menerix in a natural way (not a pitch)
+- End with a simple question to continue the chat
+- If they ask how to contact, you can share naturally:
+  Email: priya@menerix.com
+  WhatsApp: +91 79049 42335
 """
 
-            st.session_state.draft_first = generate_reply(prompt)
+            reply = generate_reply(prompt).strip()
+            st.session_state.draft_first = reply
 
 if st.session_state.draft_first:
     edited_first = st.text_area("Preview & Edit Message", st.session_state.draft_first)
 
     if st.button("✅ Approve & Save First Message"):
-        save_message(owner + "_" + company, owner, company, details or "Not provided", "AI", edited_first)
+        save_message(
+            owner + "_" + company,
+            owner,
+            company,
+            details or "Not provided",
+            "AI",
+            edited_first
+        )
         st.success("First message saved!")
         st.session_state.draft_first = ""
 
@@ -72,6 +84,7 @@ if st.button("Generate Follow-up Reply"):
         st.warning("Owner Name, Company Name and reply are required")
     else:
         with st.spinner("Writing a friendly reply..."):
+
             history = get_last_messages(owner, company)
 
             conversation = "\n".join([
@@ -80,9 +93,9 @@ if st.button("Generate Follow-up Reply"):
             ])
 
             prompt = f"""
-You are Tamil Inaiyan from Menerix, continuing a casual business chat.
+You are Priya from Menerix continuing a friendly business chat.
 
-Menerix connects sellers with buyers and helps MSMEs find new business opportunities.
+Menerix connects MSME businesses with buyers and sellers to help them grow. You talk like a real person, not a sales script.
 
 Conversation so far:
 {conversation}
@@ -90,11 +103,19 @@ Conversation so far:
 Customer just said:
 {customer_reply}
 
-Reply naturally like a real human in a business chat.
-Keep it short, friendly, and simple.
+Write a natural, friendly reply like a human chatting on WhatsApp or LinkedIn.
+
+Rules:
+- Be warm, simple, and conversational
+- No corporate or marketing language
+- Keep it short and clear
+- If they ask for contact details, share naturally:
+  "You can reach me at priya@menerix.com or WhatsApp me on +91 79049 42335."
+- Focus on continuing the conversation, not selling aggressively
 """
 
-            st.session_state.draft_followup = generate_reply(prompt)
+            reply = generate_reply(prompt).strip()
+            st.session_state.draft_followup = reply
 
 if st.session_state.draft_followup:
     edited_followup = st.text_area("Preview & Edit Follow-up", st.session_state.draft_followup)

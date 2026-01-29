@@ -70,7 +70,7 @@ def get_last_messages(user_id, limit=6):
             if len(row) > uid_index and row[uid_index] == str(user_id)
         ]
 
-        return user_msgs[-limit:]
+        return user_msgs[int(-limit):]
 
     except Exception as e:
         st.warning(f"Failed to fetch messages: {e}")
