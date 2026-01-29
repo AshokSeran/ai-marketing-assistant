@@ -1,28 +1,40 @@
 import streamlit as st
+import time
 from google import genai
 from google.genai import errors
 
-# Initialize the new SDK Client
+# Initialize client
 client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
+
 def generate_reply(prompt: str) -> str:
-    try:
-        # Use the specific Flash-Lite model for maximum free-tier limits
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-lite", 
-            contents=prompt
-        )
-        return response.text
+    retries = 4
 
-    except errors.ClientError as e:
-        # Check for the specific 'Limit: 0' or 'Quota' error
-        if "quota" in str(e).lower():
-            return (
-                "⚠️ Free Tier Quota Reached or Project not activated. "
-                "Go to [Google AI Studio](https://aistudio.google.com) "
-                "to check your API key status."
+    for attempt in range(retries):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash-lite",  # fallback: gemini-1.5-flash
+                contents=prompt
             )
-        return f"❌ API Error: {e.message}"
 
-    except Exception as e:
-        return f"❌ System Error: {str(e)}"
+            # Safe way to extract text
+            return response.candidates[0].content.parts[0].text
+
+        # 🔁 Handle temporary overload (503)
+        except errors.ServerError as e:
+            if "503" in str(e) or "overloaded" in str(e).lower():
+                wait_time = 2 ** attempt
+                time.sleep(wait_time)
+                continue
+            return "⚠️ Server error. Please try again later."
+
+        # 💳 Handle quota / billing issues
+        except errors.ClientError as e:
+            if "quota" in str(e).lower():
+                return "⚠️ Free tier quota reached or billing not enabled."
+            return f"Client error: {str(e)}"
+
+        except Exception as e:
+            return f"Unexpected error: {str(e)}"
+
+    return "⚠️ AI server is busy. Please try again in a moment."
