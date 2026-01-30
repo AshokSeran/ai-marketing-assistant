@@ -13,7 +13,7 @@ def generate_reply(prompt: str) -> str:
     for attempt in range(retries):
         try:
             response = client.models.generate_content(
-                model="gemini-2-flash",  # fallback: gemini-1.5-flash
+                model="gemini-3-flash-preview"  # fallback: gemini-1.5-flash
                 contents=prompt
             )
 
