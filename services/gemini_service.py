@@ -3,38 +3,50 @@ import time
 from google import genai
 from google.genai import errors
 
-# Initialize client
+# Initialize client using secrets
 client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
-
 def generate_reply(prompt: str) -> str:
+    # 2.0 Flash-Lite is optimized for speed and cost
+    MODEL_ID = "gemini-2.0-flash-lite" 
     retries = 4
+    base_delay = 2 
 
     for attempt in range(retries):
         try:
             response = client.models.generate_content(
-                model="gemini-3-flash-preview"  # fallback: gemini-1.5-flash
+                model=MODEL_ID,
                 contents=prompt
             )
 
-            # Safe way to extract text
-            return response.candidates[0].content.parts[0].text
+            # Access .text directly for simplicity; returns the concatenated response
+            if response.text:
+                return response.text
+            return "No response content found."
 
-        # 🔁 Handle temporary overload (503)
-        except errors.ServerError as e:
-            if "503" in str(e) or "overloaded" in str(e).lower():
-                wait_time = 2 ** attempt
-                time.sleep(wait_time)
-                continue
-            return "⚠️ Server error. Please try again later."
-
-        # 💳 Handle quota / billing issues
-        except errors.ClientError as e:
-            if "quota" in str(e).lower():
-                return "⚠️ Free tier quota reached or billing not enabled."
-            return f"Client error: {str(e)}"
+        # 🛑 Handle 429 (Rate Limit) and 503 (Overloaded)
+        except (errors.ServerError, errors.ClientError) as e:
+            error_msg = str(e).lower()
+            if "503" in error_msg or "429" in error_msg or "overloaded" in error_msg:
+                if attempt < retries - 1:
+                    wait_time = base_delay * (2 ** attempt)  # 2s, 4s, 8s...
+                    st.warning(f"Server busy. Retrying in {wait_time}s... (Attempt {attempt + 1})")
+                    time.sleep(wait_time)
+                    continue
+            
+            # Catch blocked content or invalid requests
+            st.error(f"Gemini API Error: {e}")
+            return f"Error: {e}"
 
         except Exception as e:
-            return f"Unexpected error: {str(e)}"
+            st.error(f"An unexpected error occurred: {e}")
+            break
 
-    return "⚠️ AI server is busy. Please try again in a moment."
+    return "Failed to get a response after multiple attempts."
+
+# Simple Streamlit usage
+user_input = st.text_input("Ask Gemini 2.0 Flash-Lite:")
+if user_input:
+    with st.spinner("Thinking..."):
+        answer = generate_reply(user_input)
+        st.write(answer)
